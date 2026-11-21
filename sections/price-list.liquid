@@ -10,12 +10,16 @@
 {%- liquid
   assign st = section.settings
 
-  assign source = st.collection_list
+  assign source = section.blocks
   assign auto_source = false
-  if source == blank
+  if section.blocks.size == 0
     assign source = collections
     assign auto_source = true
   endif
+  assign seen_handles = ','
+  assign ld_seen = ','
+  assign ld_items = ''
+  assign ld_count = 0
 
   assign noun_one = st.noun_singular | default: 'item'
   assign noun_many = st.noun_plural | default: 'items'
@@ -46,22 +50,30 @@
 {%- endif -%}
 
 {%- capture groups_html -%}
-  {%- for collection in source -%}
+  {%- for entry in source -%}
     {%- liquid
       if auto_source
-        if collection.handle == 'all' or collection.handle == 'frontpage' or collection.handle == badge_handle
+        assign group_collection = entry
+        if entry.handle == 'all' or entry.handle == 'frontpage' or entry.handle == badge_handle
           continue
         endif
+      else
+        assign group_collection = entry.settings.collection
       endif
-      if collection.all_products_count == 0
+      if group_collection == blank
         continue
       endif
+      assign handle_key = ',' | append: group_collection.handle | append: ','
+      if group_collection.all_products_count == 0 or seen_handles contains handle_key
+        continue
+      endif
+      assign seen_handles = seen_handles | append: group_collection.handle | append: ','
       assign group_count = 0
     -%}
 
     {%- capture rows_html -%}
-      {%- paginate collection.products by 250 -%}
-        {%- for product in collection.products -%}
+      {%- paginate group_collection.products by 250 -%}
+        {%- for product in group_collection.products -%}
           {%- liquid
             if st.hide_sold_out and product.available == false
               continue
@@ -78,6 +90,15 @@
               assign has_badge = true
               assign badge_count = badge_count | plus: 1
             endif
+            unless ld_seen contains needle
+              assign ld_seen = ld_seen | append: product.id | append: ','
+              assign ld_count = ld_count | plus: 1
+              assign ld_url = shop.url | append: product.url | json
+              if ld_count > 1
+                assign ld_items = ld_items | append: ','
+              endif
+              assign ld_items = ld_items | append: '{"@type":"ListItem","position":' | append: ld_count | append: ',"url":' | append: ld_url | append: '}'
+            endunless
             assign on_sale = false
             if product.compare_at_price_max > product.price_min
               assign on_sale = true
@@ -96,7 +117,7 @@
               {%- if st.show_images -%}
                 {%- if product.featured_image -%}
                   <a class="plist__thumb" href="{{ product.featured_image | image_url: width: 1200 }}" tabindex="-1" aria-hidden="true">
-                    <img src="{{ product.featured_image | image_url: width: 128, height: 96, crop: 'center' }}" alt="" width="60" height="45" loading="lazy" decoding="async">
+                    <img src="{{ product.featured_image | image_url: width: 128, height: 96, crop: 'center' }}" alt="{{ product.featured_image.alt | default: product.title | escape }}" width="60" height="45" loading="lazy" decoding="async">
                   </a>
                 {%- else -%}
                   <span class="plist__thumb plist__thumb--empty" aria-hidden="true"></span>
@@ -170,17 +191,17 @@
       {%- liquid
         assign group_total = group_total | plus: 1
         assign total_count = total_count | plus: group_count
-        assign group_id = 'pl-' | append: collection.handle
-        assign group_title = collection.title | escape
+        assign group_id = 'pl-' | append: group_collection.handle
+        assign group_title = group_collection.title | escape
         assign index_html = index_html | append: '<a class="plist__chip" href="#' | append: group_id | append: '">' | append: group_title | append: '<span class="plist__chip-n">' | append: group_count | append: '</span></a>'
         assign options_html = options_html | append: '<option value="' | append: group_id | append: '">' | append: group_title | append: ' (' | append: group_count | append: ')</option>'
       -%}
-      <details class="plist__group" id="{{ group_id }}" data-title="{{ group_title }}"{% unless st.start_collapsed %} open{% endunless %}>
+      <details class="plist__group" id="{{ group_id }}" data-title="{{ group_title }}"{% unless st.start_collapsed %} open{% endunless %}{% unless auto_source %} {{ entry.shopify_attributes }}{% endunless %}>
         <summary class="plist__summary">
           <span class="plist__chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" focusable="false"><path d="M3 5.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <{{ group_tag }} class="plist__gtitle">{{ group_title }}</{{ group_tag }}>
           <span class="plist__count">{{ group_count }}</span>
-          <a class="plist__glink" href="{{ collection.url }}">View collection</a>
+          <a class="plist__glink" href="{{ group_collection.url }}">View <span class="plist__sr">{{ group_title }}</span> collection</a>
         </summary>
         <ul class="plist__list">{{ rows_html }}</ul>
       </details>
@@ -593,7 +614,7 @@
       </div>
     {%- else -%}
       <div class="plist__empty">
-        <p>Nothing to list yet. Choose the collections to show in this section&rsquo;s settings.</p>
+        <p>Nothing to list yet. Add a Collection block to this section and choose a collection for it.</p>
       </div>
     {%- endif -%}
   </div>
@@ -606,6 +627,12 @@
     </div>
   {%- endif -%}
   <div class="plist__toast" data-plist-toast role="status" hidden></div>
+
+  {%- if st.enable_structured_data and ld_count > 0 -%}
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"ItemList","name":{{ st.heading | default: 'Price list' | json }},"numberOfItems":{{ ld_count }},"itemListElement":[{{ ld_items }}]}
+    </script>
+  {%- endif -%}
 
   <script type="application/json" data-plist-config>
     {
@@ -864,6 +891,10 @@
           if (event.target.classList && event.target.classList.contains('plist__input')) event.target.select();
         });
         this.addEventListener('toggle', this.syncCollapseLabel.bind(this), true);
+        this.addEventListener('shopify:block:select', function (event) {
+          var group = event.target.closest ? event.target.closest('.plist__group') : null;
+          if (group) group.open = true;
+        });
         if (this.searchInput) {
           this.searchInput.addEventListener('input', this.applyFilter.bind(this));
           this.searchInput.addEventListener('keydown', function (event) {
@@ -1371,11 +1402,8 @@
       "content": "What to list"
     },
     {
-      "type": "collection_list",
-      "id": "collection_list",
-      "label": "Collections",
-      "limit": 50,
-      "info": "Each collection becomes a group. Drag to set the order. Leave empty to list every collection automatically. Up to 250 products are shown per collection."
+      "type": "paragraph",
+      "content": "Add a Collection block for each group you want to list. Drag the blocks to reorder them, and use the eye icon to hide one without deleting it. With no blocks, every collection is listed automatically. Up to 250 products are shown per collection."
     },
     {
       "type": "collection",
@@ -1494,6 +1522,17 @@
     },
     {
       "type": "header",
+      "content": "Search engines"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_structured_data",
+      "label": "Add structured data",
+      "default": true,
+      "info": "Gives search engines a machine-readable list of every product on the page."
+    },
+    {
+      "type": "header",
       "content": "Printed copy"
     },
     {
@@ -1551,6 +1590,21 @@
       "unit": "px",
       "label": "Bottom padding",
       "default": 52
+    }
+  ],
+  "max_blocks": 50,
+  "blocks": [
+    {
+      "type": "collection",
+      "name": "Collection",
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection",
+          "info": "Each Collection block becomes one group in the price list."
+        }
+      ]
     }
   ],
   "presets": [

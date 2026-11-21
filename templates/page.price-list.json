@@ -2,31 +2,142 @@
   "sections": {
     "price-list": {
       "type": "price-list",
+      "blocks": {
+        "altolamprologus": {
+          "type": "collection",
+          "settings": {
+            "collection": "altolamprologus"
+          }
+        },
+        "cyprichromis-paracyprichromis": {
+          "type": "collection",
+          "settings": {
+            "collection": "cyprichromis-paracyprichromis"
+          }
+        },
+        "featherfins": {
+          "type": "collection",
+          "settings": {
+            "collection": "featherfins"
+          }
+        },
+        "shell-dwellers": {
+          "type": "collection",
+          "settings": {
+            "collection": "shell-dwellers"
+          }
+        },
+        "rock-dwellers-lake-tanganyika-1": {
+          "type": "collection",
+          "settings": {
+            "collection": "rock-dwellers-lake-tanganyika-1"
+          }
+        },
+        "frontosas": {
+          "type": "collection",
+          "settings": {
+            "collection": "frontosas"
+          }
+        },
+        "sand-dwelling-open-water-tanganyikans": {
+          "type": "collection",
+          "settings": {
+            "collection": "sand-dwelling-open-water-tanganyikans"
+          }
+        },
+        "tropheus": {
+          "type": "collection",
+          "settings": {
+            "collection": "tropheus"
+          }
+        },
+        "malawi-peacocks": {
+          "type": "collection",
+          "settings": {
+            "collection": "malawi-peacocks"
+          }
+        },
+        "malawi-haplochromines": {
+          "type": "collection",
+          "settings": {
+            "collection": "malawi-haplochromines"
+          }
+        },
+        "malawi-mbuna": {
+          "type": "collection",
+          "settings": {
+            "collection": "malawi-mbuna"
+          }
+        },
+        "lake-victoria-other-east-africans": {
+          "type": "collection",
+          "settings": {
+            "collection": "lake-victoria-other-east-africans"
+          }
+        },
+        "madagascan-cichlids": {
+          "type": "collection",
+          "settings": {
+            "collection": "madagascan-cichlids"
+          }
+        },
+        "other-african-cichlids": {
+          "type": "collection",
+          "settings": {
+            "collection": "other-african-cichlids"
+          }
+        },
+        "new-world-cichlids": {
+          "type": "collection",
+          "settings": {
+            "collection": "new-world-cichlids"
+          }
+        },
+        "catfish-plecos": {
+          "type": "collection",
+          "settings": {
+            "collection": "catfish-plecos"
+          }
+        },
+        "misc-fishes": {
+          "type": "collection",
+          "settings": {
+            "collection": "misc-fishes"
+          }
+        },
+        "invertebrates": {
+          "type": "collection",
+          "settings": {
+            "collection": "invertebrates"
+          }
+        }
+      },
+      "block_order": [
+        "altolamprologus",
+        "cyprichromis-paracyprichromis",
+        "featherfins",
+        "shell-dwellers",
+        "rock-dwellers-lake-tanganyika-1",
+        "frontosas",
+        "sand-dwelling-open-water-tanganyikans",
+        "tropheus",
+        "malawi-peacocks",
+        "malawi-haplochromines",
+        "malawi-mbuna",
+        "lake-victoria-other-east-africans",
+        "madagascan-cichlids",
+        "other-african-cichlids",
+        "new-world-cichlids",
+        "catfish-plecos",
+        "misc-fishes",
+        "invertebrates"
+      ],
       "settings": {
-        "heading": "Price List",
+        "heading": "Fish Price List",
         "heading_tag": "h1",
+        "intro": "<p>Current prices for every fish we have available, grouped by type. We specialize in the rare cichlids and catfishes of Africa.</p>",
         "contact": "Phone: 1 (512) 618-0120 · Email: daves@davesfish.com",
         "show_updated": true,
-        "collection_list": [
-          "altolamprologus",
-          "cyprichromis-paracyprichromis",
-          "featherfins",
-          "shell-dwellers",
-          "rock-dwellers-lake-tanganyika-1",
-          "frontosas",
-          "sand-dwelling-open-water-tanganyikans",
-          "tropheus",
-          "malawi-peacocks",
-          "malawi-haplochromines",
-          "malawi-mbuna",
-          "lake-victoria-other-east-africans",
-          "madagascan-cichlids",
-          "other-african-cichlids",
-          "new-world-cichlids",
-          "catfish-plecos",
-          "misc-fishes",
-          "invertebrates"
-        ],
         "new_collection": "new-arrivals",
         "new_label": "New",
         "hide_sold_out": false,
@@ -44,6 +155,7 @@
         "show_print": true,
         "show_excel": true,
         "show_csv": false,
+        "enable_structured_data": true,
         "print_columns": "2",
         "print_images": false,
         "color_scheme": "scheme-1",
