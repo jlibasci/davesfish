@@ -90,14 +90,27 @@ Click **Price list** on the left to see its settings. The useful ones:
 
 ## Put it on the home page (optional)
 
+The home page is a stack of sections, and the price list is one more section
+you can add to it. You decide whether it sits under what is there now or
+replaces it.
+
+Do Step 1 of the setup first, so the theme has the price list file.
+
 1. Go to **Online Store** and click **Edit theme**. It opens on the home page.
 2. On the left, click **Add section** and choose **Price list**. Drag it where you want it.
-3. It starts by listing every collection from A to Z. To choose which ones and their order, click **Add block → Collection** for each one, the same as above.
-4. In the section settings, set **Badge collection** to New Arrivals and both "what a product is called" boxes to `fish`.
-5. Click **Save**.
+3. Decide what to do with **New Arrivals & Specials**, which is on the home page now. Leave it above the list, or click its eye icon to hide it so the price list is the whole home page.
+4. Click **Price list** on the left and set:
+   - **Badge collection:** New Arrivals
+   - Both "what a product is called" boxes: `fish`
+   - **Heading level:** H1, if the price list is the main thing on the page
+5. The list starts with every collection from A to Z, leaving out New Arrivals and any empty ones. If that order is fine, you are done. For your own order, click **Add block → Collection** for each one, then drag them into place.
+6. Click **Save**.
 
-The home page list and the Price List page are separate, each with its own
-settings. You can keep both.
+Good to know:
+
+- **Saving makes it live.** Home page changes show to customers as soon as you click Save. To try it privately first, go to **Online Store**, click **⋯** next to your theme and choose **Duplicate**, make these changes on the copy, look at it with **Preview**, and click **Publish** when you are happy.
+- **It is separate from the Price List page.** The home page list has its own collections and settings, so changing one does not change the other. You can keep both, or delete the page and point the menu link at the home page.
+- **Search title and description** for the home page are under **Online Store → Preferences**, not on a page.
 
 ## What it does for search engines
 
