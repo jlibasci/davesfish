@@ -1,0 +1,1562 @@
+{%- comment -%}
+  PRICE LIST
+  A searchable, printable, orderable price list built from your collections.
+  Add it to any page in the theme editor, including the home page.
+
+  One self-contained file: markup, styles and script all live here.
+  Built for Dawn-family themes (Dawn, Crave, Sense, Craft, Refresh, ...).
+{%- endcomment -%}
+
+{%- liquid
+  assign st = section.settings
+
+  assign source = st.collection_list
+  assign auto_source = false
+  if source == blank
+    assign source = collections
+    assign auto_source = true
+  endif
+
+  assign noun_one = st.noun_singular | default: 'item'
+  assign noun_many = st.noun_plural | default: 'items'
+  assign badge_label = st.new_label | default: 'New'
+  assign group_tag = 'h3'
+  if st.heading_tag == 'h1'
+    assign group_tag = 'h2'
+  endif
+
+  assign badge_collection = st.new_collection
+  assign badge_handle = ''
+  assign badge_ids = ','
+  assign badge_count = 0
+  assign total_count = 0
+  assign group_total = 0
+  assign index_html = ''
+  assign options_html = ''
+-%}
+
+{%- comment -%} Collect the ids of products that get the badge (for example New Arrivals). {%- endcomment -%}
+{%- if badge_collection != blank -%}
+  {%- assign badge_handle = badge_collection.handle -%}
+  {%- paginate badge_collection.products by 250 -%}
+    {%- for badge_product in badge_collection.products -%}
+      {%- assign badge_ids = badge_ids | append: badge_product.id | append: ',' -%}
+    {%- endfor -%}
+  {%- endpaginate -%}
+{%- endif -%}
+
+{%- capture groups_html -%}
+  {%- for collection in source -%}
+    {%- liquid
+      if auto_source
+        if collection.handle == 'all' or collection.handle == 'frontpage' or collection.handle == badge_handle
+          continue
+        endif
+      endif
+      if collection.all_products_count == 0
+        continue
+      endif
+      assign group_count = 0
+    -%}
+
+    {%- capture rows_html -%}
+      {%- paginate collection.products by 250 -%}
+        {%- for product in collection.products -%}
+          {%- liquid
+            if st.hide_sold_out and product.available == false
+              continue
+            endif
+            assign group_count = group_count | plus: 1
+            assign multi = false
+            if product.variants.size > 1
+              assign multi = true
+            endif
+            assign first_variant = product.variants.first
+            assign has_badge = false
+            assign needle = ',' | append: product.id | append: ','
+            if badge_ids contains needle
+              assign has_badge = true
+              assign badge_count = badge_count | plus: 1
+            endif
+            assign on_sale = false
+            if product.compare_at_price_max > product.price_min
+              assign on_sale = true
+            endif
+          -%}
+          <li class="plist__item{% if multi %} plist__item--multi{% endif %}" data-title="{{ product.title | escape }}" data-url="{{ product.url }}"{% if has_badge %} data-new{% endif %}>
+            <div class="plist__row{% if multi %} plist__row--parent{% endif %}"
+              {%- unless multi %} data-vid="{{ first_variant.id }}" data-price="{{ first_variant.price }}"
+                {%- if first_variant.compare_at_price > first_variant.price %} data-compare="{{ first_variant.compare_at_price }}"{% endif -%}
+                {%- if first_variant.sku != blank %} data-sku="{{ first_variant.sku | escape }}"{% endif -%}
+                {%- unless product.has_only_default_variant %} data-opt="{{ first_variant.title | escape }}"{% endunless -%}
+                {%- unless first_variant.available %} data-soldout{% endunless -%}
+                {%- if st.show_stock and first_variant.inventory_management == 'shopify' and first_variant.inventory_policy == 'deny' %} data-max="{{ first_variant.inventory_quantity }}"{% endif -%}
+              {%- endunless -%}
+            >
+              {%- if st.show_images -%}
+                {%- if product.featured_image -%}
+                  <a class="plist__thumb" href="{{ product.featured_image | image_url: width: 1200 }}" tabindex="-1" aria-hidden="true">
+                    <img src="{{ product.featured_image | image_url: width: 128, height: 96, crop: 'center' }}" alt="" width="60" height="45" loading="lazy" decoding="async">
+                  </a>
+                {%- else -%}
+                  <span class="plist__thumb plist__thumb--empty" aria-hidden="true"></span>
+                {%- endif -%}
+              {%- endif -%}
+              <span class="plist__name">
+                <a class="plist__link" href="{{ product.url }}">{{ product.title | escape }}</a>
+                {%- unless multi or product.has_only_default_variant -%}
+                  <span class="plist__opt">{{ first_variant.title | escape }}</span>
+                {%- endunless -%}
+                {%- if has_badge -%}<span class="plist__badge">{{ badge_label | escape }}</span>{%- endif -%}
+                {%- if on_sale -%}<span class="plist__badge plist__badge--sale">Sale</span>{%- endif -%}
+                {%- unless product.available -%}<span class="plist__badge plist__badge--out">Sold out</span>{%- endunless -%}
+                {%- capture sub -%}
+                  {%- if st.show_vendor and product.vendor != blank -%}<span>{{ product.vendor | escape }}</span>{%- endif -%}
+                  {%- unless multi -%}
+                    {%- if st.show_sku and first_variant.sku != blank -%}<span>SKU {{ first_variant.sku | escape }}</span>{%- endif -%}
+                    {%- if st.show_stock and first_variant.inventory_management == 'shopify' and first_variant.inventory_quantity > 0 -%}<span>{{ first_variant.inventory_quantity }} in stock</span>{%- endif -%}
+                  {%- endunless -%}
+                {%- endcapture -%}
+                {%- if sub != blank -%}<span class="plist__sub">{{ sub }}</span>{%- endif -%}
+              </span>
+              <span class="plist__end">
+                <span class="plist__price">
+                  {%- if multi -%}
+                    <span class="plist__from">{% if product.price_varies %}from {% endif %}{{ product.price_min | money }}</span>
+                  {%- else -%}
+                    {%- if first_variant.compare_at_price > first_variant.price -%}<s class="plist__was">{{ first_variant.compare_at_price | money }}</s>{%- endif -%}
+                    {{- first_variant.price | money -}}
+                  {%- endif -%}
+                </span>
+                {%- if st.enable_ordering -%}<span class="plist__qty"></span>{%- endif -%}
+              </span>
+            </div>
+            {%- if multi -%}
+              <ul class="plist__variants">
+                {%- for variant in product.variants -%}
+                  {%- if st.hide_sold_out and variant.available == false -%}{%- continue -%}{%- endif -%}
+                  <li class="plist__row plist__row--variant" data-vid="{{ variant.id }}" data-price="{{ variant.price }}" data-opt="{{ variant.title | escape }}"
+                    {%- if variant.compare_at_price > variant.price %} data-compare="{{ variant.compare_at_price }}"{% endif -%}
+                    {%- if variant.sku != blank %} data-sku="{{ variant.sku | escape }}"{% endif -%}
+                    {%- unless variant.available %} data-soldout{% endunless -%}
+                    {%- if st.show_stock and variant.inventory_management == 'shopify' and variant.inventory_policy == 'deny' %} data-max="{{ variant.inventory_quantity }}"{% endif -%}
+                  >
+                    <span class="plist__name">
+                      <span class="plist__vname">{{ variant.title | escape }}</span>
+                      {%- unless variant.available -%}<span class="plist__badge plist__badge--out">Sold out</span>{%- endunless -%}
+                      {%- capture sub -%}
+                        {%- if st.show_sku and variant.sku != blank -%}<span>SKU {{ variant.sku | escape }}</span>{%- endif -%}
+                        {%- if st.show_stock and variant.inventory_management == 'shopify' and variant.inventory_quantity > 0 -%}<span>{{ variant.inventory_quantity }} in stock</span>{%- endif -%}
+                      {%- endcapture -%}
+                      {%- if sub != blank -%}<span class="plist__sub">{{ sub }}</span>{%- endif -%}
+                    </span>
+                    <span class="plist__end">
+                      <span class="plist__price">
+                        {%- if variant.compare_at_price > variant.price -%}<s class="plist__was">{{ variant.compare_at_price | money }}</s>{%- endif -%}
+                        {{- variant.price | money -}}
+                      </span>
+                      {%- if st.enable_ordering -%}<span class="plist__qty"></span>{%- endif -%}
+                    </span>
+                  </li>
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </li>
+        {%- endfor -%}
+      {%- endpaginate -%}
+    {%- endcapture -%}
+
+    {%- if group_count > 0 -%}
+      {%- liquid
+        assign group_total = group_total | plus: 1
+        assign total_count = total_count | plus: group_count
+        assign group_id = 'pl-' | append: collection.handle
+        assign group_title = collection.title | escape
+        assign index_html = index_html | append: '<a class="plist__chip" href="#' | append: group_id | append: '">' | append: group_title | append: '<span class="plist__chip-n">' | append: group_count | append: '</span></a>'
+        assign options_html = options_html | append: '<option value="' | append: group_id | append: '">' | append: group_title | append: ' (' | append: group_count | append: ')</option>'
+      -%}
+      <details class="plist__group" id="{{ group_id }}" data-title="{{ group_title }}"{% unless st.start_collapsed %} open{% endunless %}>
+        <summary class="plist__summary">
+          <span class="plist__chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" focusable="false"><path d="M3 5.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <{{ group_tag }} class="plist__gtitle">{{ group_title }}</{{ group_tag }}>
+          <span class="plist__count">{{ group_count }}</span>
+          <a class="plist__glink" href="{{ collection.url }}">View collection</a>
+        </summary>
+        <ul class="plist__list">{{ rows_html }}</ul>
+      </details>
+    {%- endif -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+<style>
+  #plist-{{ section.id }} {
+    --pl-max: {{ st.max_width }}px;
+    padding-top: {{ st.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ st.padding_bottom | times: 0.75 | round: 0 }}px;
+  }
+  @media screen and (min-width: 750px) {
+    #plist-{{ section.id }} {
+      padding-top: {{ st.padding_top }}px;
+      padding-bottom: {{ st.padding_bottom }}px;
+    }
+  }
+</style>
+
+<style>
+  /* ---------- Base ---------- */
+  .plist {
+    display: block;
+    position: relative;
+    --pl-fg: var(--color-foreground, 18, 18, 18);
+    --pl-bg: var(--color-background, 255, 255, 255);
+    --pl-btn: var(--color-button, 18, 18, 18);
+    --pl-btn-text: var(--color-button-text, 255, 255, 255);
+    --pl-radius: var(--inputs-radius, 8px);
+    --pl-pill: var(--buttons-radius, 8px);
+    --pl-line: rgba(var(--pl-fg), 0.14);
+    --pl-soft: rgba(var(--pl-fg), 0.06);
+    --pl-muted: rgba(var(--pl-fg), 0.72);
+    --pl-sticky-top: 0px;
+    --pl-toolbar-h: 64px;
+    --pl-thumb-w: 60px;
+    color: rgb(var(--pl-fg));
+    line-height: 1.4;
+  }
+  .plist *, .plist *::before, .plist *::after { box-sizing: border-box; }
+  .plist [hidden] { display: none !important; }
+  .plist button, .plist input, .plist select { font: inherit; letter-spacing: inherit; color: inherit; }
+  @media (pointer: coarse) { .plist input, .plist select { font-size: max(16px, 1em); } }
+  .plist :focus-visible { outline: 2px solid rgb(var(--pl-fg)); outline-offset: 2px; box-shadow: none; }
+  .plist__sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .plist__wrap { max-width: var(--pl-max, 1100px); margin: 0 auto; padding: 0 clamp(15px, 4vw, 50px); }
+  body:has(.shopify-section-header-sticky:not(.shopify-section-header-hidden)) .plist { --pl-sticky-top: var(--header-height, 0px); }
+
+  /* ---------- Header ---------- */
+  .plist__printhead { display: none; }
+  .plist__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1em 2em; margin-bottom: 1.25em; }
+  .plist__headmain { flex: 1 1 20em; min-width: 0; }
+  .plist .plist__title {
+    margin: 0;
+    font-family: var(--font-heading-family, inherit);
+    font-style: var(--font-heading-style, normal);
+    font-weight: var(--font-heading-weight, 700);
+    font-size: clamp(1.9em, 4.5vw, 2.6em);
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    color: rgb(var(--pl-fg));
+  }
+  .plist__intro { margin-top: 0.6em; max-width: 46em; color: var(--pl-muted); }
+  .plist__intro > :first-child { margin-top: 0; }
+  .plist__intro > :last-child { margin-bottom: 0; }
+  .plist .plist__intro a { color: rgb(var(--pl-fg)); text-decoration: underline; text-underline-offset: 0.2em; }
+  .plist .plist__contact, .plist .plist__meta { margin: 0.5em 0 0; font-size: 0.9em; color: var(--pl-muted); }
+  .plist__actions { display: flex; flex-wrap: wrap; gap: 0.5em; }
+  .plist .plist__btn {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    min-height: 2.6em; padding: 0.45em 1.05em;
+    border: 1.5px solid rgba(var(--pl-fg), 0.55); border-radius: var(--pl-pill);
+    background: transparent; color: rgb(var(--pl-fg));
+    font-size: 0.875em; font-weight: 700; line-height: 1.2; text-decoration: none; cursor: pointer;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .plist .plist__btn:hover { background: rgb(var(--pl-fg)); border-color: rgb(var(--pl-fg)); color: rgb(var(--pl-bg)); }
+  .plist__btn svg { flex: none; }
+
+  /* ---------- Group index ---------- */
+  .plist__index { display: none; flex-wrap: wrap; gap: 0.4em; margin: 0 0 0.9em; }
+  @media screen and (min-width: 750px) { .plist__index { display: flex; } }
+  .plist .plist__chip {
+    display: inline-flex; align-items: center; gap: 0.5em; padding: 0.3em 0.8em;
+    border-radius: 999px; background: var(--pl-soft); color: rgb(var(--pl-fg));
+    font-size: 0.85em; line-height: 1.3; text-decoration: none; transition: background-color 0.15s;
+  }
+  .plist .plist__chip:hover { background: rgba(var(--pl-fg), 0.14); }
+  .plist__chip-n { font-size: 0.85em; color: var(--pl-muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Sticky toolbar ---------- */
+  .plist__toolbar {
+    position: sticky; top: var(--pl-sticky-top); z-index: 2;
+    display: flex; align-items: stretch; gap: 0.6em; padding: 0.6em 0;
+    background: rgb(var(--pl-bg)); transition: top 0.15s ease-out;
+  }
+  .plist__search { position: relative; flex: 1 1 auto; min-width: 0; display: flex; }
+  .plist__search > svg { position: absolute; left: 0.9em; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--pl-muted); }
+  .plist .plist__searchinput {
+    width: 100%; height: 2.9em; margin: 0; padding: 0 2.7em;
+    border: 1.5px solid rgba(var(--pl-fg), 0.45); border-radius: var(--pl-radius);
+    background: rgb(var(--pl-bg)); color: rgb(var(--pl-fg));
+    -webkit-appearance: none; appearance: none; box-shadow: none;
+  }
+  .plist__searchinput::placeholder { color: rgba(var(--pl-fg), 0.55); opacity: 1; }
+  .plist__searchinput::-webkit-search-cancel-button, .plist__searchinput::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+  .plist .plist__clear {
+    position: absolute; right: 0.4em; top: 50%; transform: translateY(-50%);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.1em; height: 2.1em; padding: 0; border: 0; border-radius: 50%;
+    background: transparent; color: var(--pl-muted); cursor: pointer;
+  }
+  .plist .plist__clear:hover { background: var(--pl-soft); color: rgb(var(--pl-fg)); }
+  .plist__select { position: relative; display: inline-flex; flex: 0 1 auto; min-width: 0; }
+  .plist__select::after {
+    content: ""; position: absolute; right: 1em; top: 50%; width: 0.5em; height: 0.5em;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: translateY(-70%) rotate(45deg); pointer-events: none;
+  }
+  .plist .plist__select select {
+    width: 100%; min-height: 2.9em; margin: 0; padding: 0 2.4em 0 0.9em;
+    border: 1.5px solid rgba(var(--pl-fg), 0.45); border-radius: var(--pl-radius);
+    background: rgb(var(--pl-bg)); color: rgb(var(--pl-fg));
+    -webkit-appearance: none; appearance: none; box-shadow: none; cursor: pointer; text-overflow: ellipsis;
+  }
+  .plist__select--jump { flex: 0 0 min(42%, 17em); }
+  .plist .plist__select--small select { min-height: 2.2em; padding-left: 0.75em; border-radius: 999px; }
+
+  /* ---------- View options ---------- */
+  .plist__options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4em 1em; padding: 0.35em 0 0.25em; font-size: 0.9em; }
+  .plist .plist__status { margin: 0; color: var(--pl-muted); }
+  .plist__optright { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em 0.9em; }
+  .plist .plist__textbtn { padding: 0.3em 0; border: 0; background: none; color: rgb(var(--pl-fg)); text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
+  .plist .plist__toggle {
+    display: inline-flex; align-items: center; gap: 0.4em; min-height: 2.2em; padding: 0.2em 0.9em;
+    border: 1.5px solid rgba(var(--pl-fg), 0.45); border-radius: 999px; background: transparent; cursor: pointer;
+  }
+  .plist .plist__toggle[aria-pressed="true"] { background: rgb(var(--pl-btn)); border-color: rgb(var(--pl-btn)); color: rgb(var(--pl-btn-text)); }
+
+  /* ---------- Groups ---------- */
+  .plist__groups { margin-top: 0.4em; }
+  .plist__group { margin: 0 0 1.3em; scroll-margin-top: calc(var(--pl-sticky-top) + var(--pl-toolbar-h) + 8px); }
+  .plist .plist__summary {
+    display: flex; align-items: center; gap: 0.6em; padding: 0.7em 0.25em 0.5em;
+    border-bottom: 2px solid rgb(var(--pl-fg)); list-style: none; cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+  }
+  .plist__summary::-webkit-details-marker { display: none; }
+  .plist__chev { display: inline-flex; flex: none; transition: transform 0.15s; }
+  .plist__group:not([open]) .plist__chev { transform: rotate(-90deg); }
+  .plist .plist__gtitle {
+    margin: 0;
+    font-family: var(--font-heading-family, inherit);
+    font-style: var(--font-heading-style, normal);
+    font-weight: var(--font-heading-weight, 700);
+    font-size: 1.45em; line-height: 1.2; letter-spacing: 0.01em; color: rgb(var(--pl-fg));
+  }
+  .plist__count { flex: none; padding: 0.15em 0.6em; border-radius: 999px; background: var(--pl-soft); color: var(--pl-muted); font-size: 0.8em; font-variant-numeric: tabular-nums; }
+  .plist .plist__glink { margin-left: auto; padding-left: 0.5em; font-size: 0.85em; color: var(--pl-muted); text-decoration: underline; text-underline-offset: 0.2em; white-space: nowrap; }
+  .plist .plist__glink:hover { color: rgb(var(--pl-fg)); }
+  .plist .plist__list, .plist .plist__variants { margin: 0; padding: 0; list-style: none; }
+  .plist .plist__item { margin: 0; padding: 0; border-bottom: 1px solid var(--pl-line); }
+  .plist .plist__item::before, .plist .plist__row::before { content: none; }
+
+  /* ---------- Rows ---------- */
+  .plist__row { display: flex; align-items: center; gap: 0.85em; min-height: 3.5em; padding: 0.4em 0.5em; transition: background-color 0.12s; }
+  @media (hover: hover) { .plist__row:hover { background: var(--pl-soft); } }
+  .plist__row.is-picked { background: rgba(var(--pl-btn), 0.09); box-shadow: inset 3px 0 0 rgb(var(--pl-btn)); }
+  .plist .plist__thumb { flex: none; display: block; width: var(--pl-thumb-w); height: calc(var(--pl-thumb-w) * 0.75); border-radius: 6px; overflow: hidden; background: var(--pl-soft); cursor: zoom-in; }
+  .plist .plist__thumb--empty { cursor: default; }
+  .plist .plist__thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .plist__name { flex: 1 1 auto; min-width: 0; display: block; overflow-wrap: anywhere; }
+  .plist .plist__link { color: rgb(var(--pl-fg)); text-decoration: none; }
+  .plist .plist__link:hover { text-decoration: underline; text-underline-offset: 0.18em; }
+  .plist__vname { color: rgb(var(--pl-fg)); }
+  .plist__opt { display: inline-block; max-width: 100%; margin-left: 0.5em; padding: 0.05em 0.55em; border: 1px solid rgba(var(--pl-fg), 0.3); border-radius: 0.9em; font-size: 0.8em; color: var(--pl-muted); vertical-align: 0.08em; }
+  .plist__badge { display: inline-block; margin-left: 0.5em; padding: 0.12em 0.6em; border: 1px solid rgb(var(--pl-btn)); border-radius: 999px; background: rgb(var(--pl-btn)); color: rgb(var(--pl-btn-text)); font-size: 0.68em; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; white-space: nowrap; vertical-align: 0.18em; }
+  .plist__badge--sale { background: transparent; color: rgb(var(--pl-btn)); }
+  .plist__badge--out { border-color: rgba(var(--pl-fg), 0.4); background: transparent; color: var(--pl-muted); }
+  .plist__sub { display: block; font-size: 0.8em; color: var(--pl-muted); }
+  .plist__sub span + span::before { content: "\00b7"; margin: 0 0.45em; }
+  .plist__end { flex: none; display: flex; align-items: center; gap: 0.85em; }
+  .plist__price { display: block; min-width: 4.4em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .plist__was { margin-right: 0.45em; font-weight: 400; color: var(--pl-muted); }
+  .plist__from { font-weight: 400; font-size: 0.9em; color: var(--pl-muted); }
+  .plist .plist__qty { display: flex; justify-content: flex-end; width: 6.9em; }
+  .plist .plist__variants { margin: 0 0 0.4em calc(var(--pl-thumb-w) + 1.35em); }
+  .plist--noimg .plist__variants { margin-left: 1.2em; }
+  .plist__row--variant { min-height: 2.8em; padding: 0.25em 0.5em 0.25em 0.85em; border-left: 2px solid var(--pl-line); }
+  .plist mark { padding: 0 0.05em; border-radius: 2px; background: rgba(var(--pl-btn), 0.2); color: inherit; }
+
+  /* ---------- Quantity stepper ---------- */
+  .plist__stepper { display: inline-flex; align-items: center; height: 2.4em; border: 1.5px solid rgba(var(--pl-fg), 0.5); border-radius: 999px; background: rgb(var(--pl-bg)); overflow: hidden; }
+  .plist__stepper.is-zero { border-color: transparent; background: transparent; overflow: visible; }
+  .plist__stepper.is-zero .plist__step--minus, .plist__stepper.is-zero .plist__input { display: none; }
+  .plist .plist__step { display: inline-flex; align-items: center; justify-content: center; width: 2.3em; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; color: rgb(var(--pl-fg)); cursor: pointer; }
+  .plist .plist__step:hover { background: var(--pl-soft); }
+  .plist .plist__stepper.is-zero .plist__step--plus { width: 2.4em; height: 2.4em; border: 1.5px solid rgba(var(--pl-fg), 0.5); border-radius: 50%; transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
+  .plist .plist__stepper.is-zero .plist__step--plus:hover { background: rgb(var(--pl-btn)); border-color: rgb(var(--pl-btn)); color: rgb(var(--pl-btn-text)); }
+  .plist .plist__input { width: 2.3em; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: center; font-variant-numeric: tabular-nums; box-shadow: none; -moz-appearance: textfield; appearance: textfield; }
+  .plist__input::-webkit-outer-spin-button, .plist__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* ---------- Empty state ---------- */
+  .plist__empty { padding: 2.5em 1em; text-align: center; color: var(--pl-muted); }
+  .plist__empty p { margin: 0 0 0.6em; }
+
+  /* ---------- Order bar, toast, photo viewer ---------- */
+  .plist__bar {
+    position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 0.9em; max-width: calc(100vw - 24px);
+    padding: 0.5em 0.5em 0.5em 1.3em; border-radius: 999px;
+    background: rgb(var(--pl-fg)); color: rgb(var(--pl-bg)); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3); white-space: nowrap;
+  }
+  .plist__bartext { font-variant-numeric: tabular-nums; }
+  .plist .plist__bar .plist__textbtn { color: rgb(var(--pl-bg)); font-size: 0.9em; }
+  .plist .plist__barbtn { min-height: 2.6em; margin: 0; padding: 0.5em 1.3em; border: 0; border-radius: 999px; background: rgb(var(--pl-bg)); color: rgb(var(--pl-fg)); font-weight: 700; cursor: pointer; }
+  .plist .plist__barbtn[disabled] { opacity: 0.65; cursor: progress; }
+  .plist__toast {
+    position: fixed; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4.6em); z-index: 2; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 0.9em; width: max-content; max-width: min(34em, calc(100vw - 24px));
+    padding: 0.7em 0.7em 0.7em 1.1em; border: 1.5px solid rgb(var(--pl-fg)); border-radius: var(--pl-radius);
+    background: rgb(var(--pl-bg)); color: rgb(var(--pl-fg)); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  }
+  .plist__toast--error { border-color: #b3261e; }
+  .plist .plist__toast a { color: rgb(var(--pl-fg)); font-weight: 700; white-space: nowrap; text-decoration: underline; text-underline-offset: 0.2em; }
+  .plist .plist__toastclose { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2em; height: 2em; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+  .plist .plist__toastclose:hover { background: var(--pl-soft); }
+  .plist__lightbox { max-width: min(92vw, 900px); padding: 0; border: 0; border-radius: 12px; background: rgb(var(--pl-bg)); color: rgb(var(--pl-fg)); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45); overflow: hidden; }
+  .plist__lightbox::backdrop { background: rgba(0, 0, 0, 0.62); }
+  .plist__lightbox img { display: block; width: auto; height: auto; max-width: 100%; max-height: 72vh; min-width: min(60vw, 320px); margin: 0 auto; background: var(--pl-soft); }
+  .plist__lbcap { display: flex; align-items: center; justify-content: space-between; gap: 1em; padding: 0.8em 1.1em; }
+  .plist__lbcap a { color: rgb(var(--pl-fg)); white-space: nowrap; text-underline-offset: 0.2em; }
+  .plist .plist__lbclose { position: absolute; top: 0.6em; right: 0.6em; display: flex; align-items: center; justify-content: center; width: 2.4em; height: 2.4em; padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.6); color: #fff; cursor: pointer; }
+
+  /* ---------- Small screens ---------- */
+  @media screen and (max-width: 599px) {
+    .plist { --pl-thumb-w: 52px; }
+    .plist__row { gap: 0.7em; padding-left: 0.25em; padding-right: 0.25em; }
+    .plist__end { flex-direction: column; align-items: flex-end; gap: 0.3em; }
+    .plist .plist__qty { width: auto; }
+    .plist .plist__variants { margin-left: 0.6em; }
+    .plist__opt { margin-left: 0.3em; }
+    .plist .plist__gtitle { font-size: 1.25em; }
+    .plist__optright { display: contents; }
+    .plist .plist__status { order: 1; flex: 1 1 55%; }
+    .plist .plist__textbtn[data-plist-collapse] { order: 2; }
+    .plist .plist__toggle { order: 3; }
+    .plist__select--small { order: 4; flex: 1 1 9em; }
+    .plist__glink { display: none; }
+    .plist__actions { width: 100%; }
+    .plist__bar { gap: 0.7em; padding-left: 1.1em; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .plist *, .plist__toolbar { transition: none !important; }
+  }
+
+  /* ---------- Print / save as PDF ---------- */
+  @media print {
+    html.plist-print-only body *:not(.plist-print-path):not(.plist--printing):not(.plist--printing *) { display: none !important; }
+    html.plist-print-only, html.plist-print-only body, html.plist-print-only .plist-print-path {
+      position: static !important; width: auto !important; max-width: none !important; min-height: 0 !important;
+      margin: 0 !important; padding: 0 !important; border: 0 !important; background: #fff !important;
+      box-shadow: none !important; transform: none !important; overflow: visible !important;
+    }
+    .plist {
+      --pl-fg: 0, 0, 0; --pl-bg: 255, 255, 255; --pl-btn: 0, 0, 0; --pl-btn-text: 255, 255, 255;
+      --pl-line: rgba(0, 0, 0, 0.22); --pl-soft: transparent; --pl-muted: rgba(0, 0, 0, 0.72);
+      padding: 0 !important; background: #fff !important; color: #000; font-size: 9.5pt; line-height: 1.3; letter-spacing: 0;
+    }
+    .plist__wrap { max-width: none; padding: 0; }
+    .plist__toolbar, .plist__options, .plist__actions, .plist__index, .plist__bar, .plist__toast, .plist__lightbox,
+    .plist__empty, .plist__chev, .plist .plist__qty, .plist .plist__glink { display: none !important; }
+    .plist__printhead { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; margin-bottom: 0.5em; padding-bottom: 0.4em; border-bottom: 1.5pt solid #000; font-size: 1.1em; }
+    .plist__printhead strong { font-family: var(--font-heading-family, inherit); font-size: 1.35em; font-weight: 700; }
+    .plist__head { margin-bottom: 0.8em; }
+    .plist .plist__title { font-size: 1.7em; }
+    .plist--pcols2 .plist__groups { column-count: 2; column-gap: 9mm; }
+    .plist__group { margin-bottom: 0.9em; }
+    .plist .plist__summary { padding: 0.3em 0 0.2em; border-bottom-width: 1pt; break-after: avoid; break-inside: avoid; }
+    .plist .plist__gtitle { font-size: 1.25em; }
+    .plist__count { padding: 0; }
+    .plist .plist__item { break-inside: avoid; }
+    .plist__row, .plist__row--variant { min-height: 0; padding: 0.22em 0; gap: 0.6em; background: none !important; box-shadow: none !important; }
+    .plist__row--variant { padding-left: 0.7em; }
+    .plist .plist__thumb { display: none; }
+    .plist--pimg .plist__thumb { display: block; width: 36px; height: 27px; border-radius: 3px; }
+    .plist .plist__variants, .plist--noimg .plist__variants { margin: 0 0 0.25em 0.6em; }
+    .plist--pimg .plist__variants { margin-left: calc(36px + 0.6em); }
+    .plist__end { flex-direction: row; }
+    .plist__badge { border: 0.75pt solid #000; background: none !important; color: #000 !important; }
+    .plist mark { background: none; }
+    .plist a { color: #000; text-decoration: none; }
+    @page { margin: 12mm 11mm; }
+  }
+</style>
+
+<plist-section
+  id="plist-{{ section.id }}"
+  class="plist color-{{ st.color_scheme }} gradient{% unless st.show_images %} plist--noimg{% endunless %}{% if st.print_columns == '2' %} plist--pcols2{% endif %}{% if st.print_images and st.show_images %} plist--pimg{% endif %}"
+>
+  <div class="plist__wrap">
+    <div class="plist__printhead">
+      <strong>{{ shop.name | escape }}</strong>
+      <span>{{ shop.url | remove: 'https://' | remove: 'http://' | escape }}</span>
+    </div>
+
+    <div class="plist__head">
+      <div class="plist__headmain">
+        {%- if st.heading != blank -%}
+          <{{ st.heading_tag }} class="plist__title">{{ st.heading | escape }}</{{ st.heading_tag }}>
+        {%- endif -%}
+        {%- if st.intro != blank -%}
+          <div class="plist__intro rte">{{ st.intro }}</div>
+        {%- endif -%}
+        {%- if st.contact != blank -%}
+          <p class="plist__contact">{{ st.contact | escape | newline_to_br }}</p>
+        {%- endif -%}
+        {%- if st.show_updated -%}
+          <p class="plist__meta">Prices as of {{ 'now' | date: '%B %-d, %Y' }}</p>
+        {%- endif -%}
+      </div>
+      {%- if total_count > 0 -%}
+        {%- if st.show_print or st.show_excel or st.show_csv -%}
+          <div class="plist__actions">
+            {%- if st.show_print -%}
+              <button type="button" class="plist__btn" data-plist-print>
+                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path d="M4.5 6V2h7v4M4.5 12H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-1.5M4.5 9.5h7V14h-7z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                Print / PDF
+              </button>
+            {%- endif -%}
+            {%- if st.show_excel -%}
+              <button type="button" class="plist__btn" data-plist-export="xlsx">
+                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Excel
+              </button>
+            {%- endif -%}
+            {%- if st.show_csv -%}
+              <button type="button" class="plist__btn" data-plist-export="csv">
+                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                CSV
+              </button>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+
+    {%- if total_count > 0 -%}
+      {%- if st.show_index and group_total > 1 -%}
+        <nav class="plist__index" aria-label="Jump to a group">{{ index_html }}</nav>
+      {%- endif -%}
+
+      {%- if st.enable_search or group_total > 1 -%}
+        <div class="plist__toolbar" data-plist-toolbar>
+          {%- if st.enable_search -%}
+            <div class="plist__search">
+              <label class="plist__sr" for="plist-search-{{ section.id }}">Search {{ noun_many | escape }}</label>
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <input class="plist__searchinput" id="plist-search-{{ section.id }}" type="search" placeholder="Search {{ noun_many | escape }}&hellip;" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" data-plist-search>
+              <button type="button" class="plist__clear" data-plist-clear-search aria-label="Clear search" hidden>
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+          {%- endif -%}
+          {%- if group_total > 1 -%}
+            <label class="plist__select plist__select--jump">
+              <span class="plist__sr">Jump to a group</span>
+              <select data-plist-jump>
+                <option value="">Jump to&hellip;</option>
+                {{ options_html }}
+              </select>
+            </label>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      <div class="plist__options">
+        <p class="plist__status" role="status" data-plist-status>
+          {{- total_count }} {% if total_count == 1 %}{{ noun_one | escape }}{% else %}{{ noun_many | escape }}{% endif -%}
+          {%- if group_total > 1 %} in {{ group_total }} groups{% endif -%}
+        </p>
+        <div class="plist__optright">
+          {%- if badge_count > 0 -%}
+            <button type="button" class="plist__toggle" data-plist-new aria-pressed="false">{{ badge_label | escape }} only ({{ badge_count }})</button>
+          {%- endif -%}
+          {%- if st.enable_sort -%}
+            <label class="plist__select plist__select--small">
+              <span class="plist__sr">Sort</span>
+              <select data-plist-sort>
+                <option value="default">Sort: Featured</option>
+                <option value="name">Sort: Name A&ndash;Z</option>
+                <option value="price-asc">Sort: Price, low to high</option>
+                <option value="price-desc">Sort: Price, high to low</option>
+              </select>
+            </label>
+          {%- endif -%}
+          {%- if group_total > 1 -%}
+            <button type="button" class="plist__textbtn" data-plist-collapse>{% if st.start_collapsed %}Expand all{% else %}Collapse all{% endif %}</button>
+          {%- endif -%}
+        </div>
+      </div>
+
+      <div class="plist__groups" data-plist-groups>{{ groups_html }}</div>
+
+      <div class="plist__empty" data-plist-empty hidden>
+        <p>No {{ noun_many | escape }} match your search.</p>
+        <button type="button" class="plist__textbtn" data-plist-reset>Show everything</button>
+      </div>
+    {%- else -%}
+      <div class="plist__empty">
+        <p>Nothing to list yet. Choose the collections to show in this section&rsquo;s settings.</p>
+      </div>
+    {%- endif -%}
+  </div>
+
+  {%- if st.enable_ordering and total_count > 0 -%}
+    <div class="plist__bar" data-plist-bar hidden>
+      <span class="plist__bartext"><strong data-plist-bar-count></strong> &middot; <span data-plist-bar-total></span></span>
+      <button type="button" class="plist__textbtn" data-plist-clear-order>Clear</button>
+      <button type="button" class="plist__barbtn" data-plist-add>Add to cart</button>
+    </div>
+  {%- endif -%}
+  <div class="plist__toast" data-plist-toast role="status" hidden></div>
+
+  <script type="application/json" data-plist-config>
+    {
+      "currency": {{ cart.currency.iso_code | json }},
+      "locale": {{ request.locale.iso_code | json }},
+      "cartAddUrl": {{ routes.cart_add_url | json }},
+      "cartUrl": {{ routes.cart_url | json }},
+      "shopName": {{ shop.name | json }},
+      "shopUrl": {{ shop.url | json }},
+      "nounOne": {{ noun_one | json }},
+      "nounMany": {{ noun_many | json }},
+      "total": {{ total_count }},
+      "groups": {{ group_total }},
+      "printImages": {% if st.print_images and st.show_images %}true{% else %}false{% endif %},
+      "date": {{ 'now' | date: '%Y-%m-%d' | json }}
+    }
+  </script>
+</plist-section>
+
+<script>
+  (function () {
+    'use strict';
+    if (!window.customElements || customElements.get('plist-section')) return;
+
+    var ICONS = {
+      plus: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      minus: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3 8h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+      close: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><path d="m3.5 3.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
+    };
+    var MAX_QTY = 9999;
+
+    function norm(text) {
+      var s = String(text || '').toLowerCase();
+      if (s.normalize) s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return s.replace(/[“”„″]/g, '"').replace(/[‘’′]/g, "'");
+    }
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function slug(text) {
+      return norm(text).replace(/['\u2019]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'price-list';
+    }
+    function sortKey(title) {
+      return title.replace(/^[^A-Za-z0-9]+/, '');
+    }
+
+    /* ---- Spreadsheet export helpers (no libraries needed) ---- */
+    var CRC_TABLE = (function () {
+      var table = new Uint32Array(256);
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+    function crc32(bytes) {
+      var c = 0xffffffff;
+      for (var i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    }
+    function zipStore(files, mime) {
+      var encoder = new TextEncoder();
+      var parts = [];
+      var central = [];
+      var offset = 0;
+      var now = new Date();
+      var dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+      var dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+      files.forEach(function (file) {
+        var name = encoder.encode(file.name);
+        var data = encoder.encode(file.text);
+        var crc = crc32(data);
+        var local = new DataView(new ArrayBuffer(30));
+        local.setUint32(0, 0x04034b50, true);
+        local.setUint16(4, 20, true);
+        local.setUint16(10, dosTime, true);
+        local.setUint16(12, dosDate, true);
+        local.setUint32(14, crc, true);
+        local.setUint32(18, data.length, true);
+        local.setUint32(22, data.length, true);
+        local.setUint16(26, name.length, true);
+        parts.push(new Uint8Array(local.buffer), name, data);
+        var entry = new DataView(new ArrayBuffer(46));
+        entry.setUint32(0, 0x02014b50, true);
+        entry.setUint16(4, 20, true);
+        entry.setUint16(6, 20, true);
+        entry.setUint16(12, dosTime, true);
+        entry.setUint16(14, dosDate, true);
+        entry.setUint32(16, crc, true);
+        entry.setUint32(20, data.length, true);
+        entry.setUint32(24, data.length, true);
+        entry.setUint16(28, name.length, true);
+        entry.setUint32(42, offset, true);
+        central.push(new Uint8Array(entry.buffer), name);
+        offset += 30 + name.length + data.length;
+      });
+      var centralSize = central.reduce(function (sum, chunk) { return sum + chunk.length; }, 0);
+      var end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true);
+      end.setUint16(8, files.length, true);
+      end.setUint16(10, files.length, true);
+      end.setUint32(12, centralSize, true);
+      end.setUint32(16, offset, true);
+      return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: mime });
+    }
+    function xmlText(value) {
+      return String(value)
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function columnName(index) {
+      var name = '';
+      for (var n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) name = String.fromCharCode(65 + ((n - 1) % 26)) + name;
+      return name;
+    }
+    function buildXlsx(columns, rows, sheetName) {
+      var XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+      var MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+      var REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+      var PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
+      function cell(value, col, row, style) {
+        var ref = columnName(col) + row;
+        if (value === null || value === undefined || value === '') return '';
+        if (typeof value === 'number') return '<c r="' + ref + '" s="' + style + '"><v>' + value + '</v></c>';
+        return '<c r="' + ref + '" t="inlineStr" s="' + style + '"><is><t xml:space="preserve">' + xmlText(value) + '</t></is></c>';
+      }
+      var sheet = XML + '<worksheet xmlns="' + MAIN + '">' +
+        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+        '<cols>' + columns.map(function (c, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + c.width + '" customWidth="1"/>'; }).join('') + '</cols>' +
+        '<sheetData><row r="1">' + columns.map(function (c, i) { return cell(c.label, i, 1, 1); }).join('') + '</row>' +
+        rows.map(function (row, r) {
+          return '<row r="' + (r + 2) + '">' + columns.map(function (c, i) {
+            return cell(row[c.key], i, r + 2, typeof row[c.key] === 'number' ? 2 : 0);
+          }).join('') + '</row>';
+        }).join('') +
+        '</sheetData><autoFilter ref="A1:' + columnName(columns.length - 1) + (rows.length + 1) + '"/></worksheet>';
+      var styles = XML + '<styleSheet xmlns="' + MAIN + '">' +
+        '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+        '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+        '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        '<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+        '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+        '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' +
+        '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+        '</styleSheet>';
+      return zipStore([
+        { name: '[Content_Types].xml', text: XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+        { name: '_rels/.rels', text: XML + '<Relationships xmlns="' + PKG + '"><Relationship Id="rId1" Type="' + REL + '/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+        { name: 'xl/workbook.xml', text: XML + '<workbook xmlns="' + MAIN + '" xmlns:r="' + REL + '"><bookViews><workbookView/></bookViews><sheets><sheet name="' + xmlText(sheetName) + '" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+        { name: 'xl/_rels/workbook.xml.rels', text: XML + '<Relationships xmlns="' + PKG + '"><Relationship Id="rId1" Type="' + REL + '/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="' + REL + '/styles" Target="styles.xml"/></Relationships>' },
+        { name: 'xl/styles.xml', text: styles },
+        { name: 'xl/worksheets/sheet1.xml', text: sheet }
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+    function buildCsv(columns, rows) {
+      function field(value) {
+        if (value === null || value === undefined) return '';
+        var s = typeof value === 'number' ? value.toFixed(2) : String(value);
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }
+      var lines = [columns.map(function (c) { return field(c.label); }).join(',')];
+      rows.forEach(function (row) {
+        lines.push(columns.map(function (c) { return field(row[c.key]); }).join(','));
+      });
+      return new Blob(['﻿' + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
+    }
+    function download(blob, filename) {
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    }
+
+    class PriceList extends HTMLElement {
+      connectedCallback() {
+        if (this.plistReady) return;
+        this.plistReady = true;
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', this.setup.bind(this), { once: true });
+        } else {
+          this.setup();
+        }
+      }
+
+      disconnectedCallback() {
+        if (!this.onScroll) return;
+        window.removeEventListener('scroll', this.onScroll);
+        window.removeEventListener('resize', this.onScroll);
+        window.removeEventListener('beforeprint', this.onBeforePrint);
+        window.removeEventListener('afterprint', this.onAfterPrint);
+      }
+
+      setup() {
+        var self = this;
+        var configEl = this.querySelector('[data-plist-config]');
+        this.cfg = {};
+        try { this.cfg = JSON.parse(configEl.textContent); } catch (e) { /* keep defaults */ }
+
+        this.searchInput = this.querySelector('[data-plist-search]');
+        this.clearSearchBtn = this.querySelector('[data-plist-clear-search]');
+        this.jumpSelect = this.querySelector('[data-plist-jump]');
+        this.sortSelect = this.querySelector('[data-plist-sort]');
+        this.newToggle = this.querySelector('[data-plist-new]');
+        this.collapseBtn = this.querySelector('[data-plist-collapse]');
+        this.statusEl = this.querySelector('[data-plist-status]');
+        this.emptyEl = this.querySelector('[data-plist-empty]');
+        this.toolbar = this.querySelector('[data-plist-toolbar]');
+        this.bar = this.querySelector('[data-plist-bar]');
+        this.toast = this.querySelector('[data-plist-toast]');
+        this.defaultStatus = this.statusEl ? this.statusEl.textContent : '';
+        this.qty = new Map();
+        this.rowsByVariant = new Map();
+        this.filtering = false;
+
+        try {
+          this.money = new Intl.NumberFormat(this.cfg.locale || undefined, { style: 'currency', currency: this.cfg.currency || 'USD' });
+        } catch (e) {
+          this.money = { format: function (n) { return '$' + n.toFixed(2); } };
+        }
+
+        this.groups = Array.prototype.map.call(this.querySelectorAll('.plist__group'), function (el) {
+          var list = el.querySelector('.plist__list');
+          var group = { el: el, id: el.id, title: el.dataset.title || '', list: list, countEl: el.querySelector('.plist__count'), wasOpen: el.open };
+          group.items = Array.prototype.map.call(list.children, function (li, index) {
+            var rows = Array.prototype.slice.call(li.querySelectorAll('[data-vid]'));
+            var words = [li.dataset.title, group.title];
+            var price = Infinity;
+            rows.forEach(function (row) {
+              words.push(row.dataset.opt || '', row.dataset.sku || '');
+              price = Math.min(price, Number(row.dataset.price) || 0);
+              self.prepareRow(row, li.dataset.title);
+            });
+            return {
+              el: li, index: index, title: li.dataset.title || '', text: norm(words.join(' ')),
+              price: price === Infinity ? 0 : price, isNew: li.hasAttribute('data-new'),
+              nameEl: li.querySelector('.plist__link'), rows: rows
+            };
+          });
+          return group;
+        });
+
+        this.addEventListener('click', this.handleClick.bind(this));
+        this.addEventListener('change', this.handleChange.bind(this));
+        this.addEventListener('focusin', function (event) {
+          if (event.target.classList && event.target.classList.contains('plist__input')) event.target.select();
+        });
+        this.addEventListener('toggle', this.syncCollapseLabel.bind(this), true);
+        if (this.searchInput) {
+          this.searchInput.addEventListener('input', this.applyFilter.bind(this));
+          this.searchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && self.searchInput.value) {
+              event.preventDefault();
+              self.searchInput.value = '';
+              self.applyFilter();
+            }
+          });
+        }
+
+        var ticking = false;
+        this.onScroll = function () {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(function () {
+            ticking = false;
+            self.syncPosition();
+          });
+        };
+        this.onBeforePrint = function () {
+          self.groups.forEach(function (g) {
+            if (g.printWasOpen === undefined) g.printWasOpen = g.el.open;
+            g.el.open = true;
+          });
+        };
+        this.onAfterPrint = function () {
+          self.groups.forEach(function (g) { if (g.printWasOpen !== undefined) g.el.open = g.printWasOpen; g.printWasOpen = undefined; });
+          document.documentElement.classList.remove('plist-print-only');
+          self.classList.remove('plist--printing');
+          Array.prototype.forEach.call(document.querySelectorAll('.plist-print-path'), function (el) { el.classList.remove('plist-print-path'); });
+        };
+        window.addEventListener('scroll', this.onScroll, { passive: true });
+        window.addEventListener('resize', this.onScroll);
+        window.addEventListener('beforeprint', this.onBeforePrint);
+        window.addEventListener('afterprint', this.onAfterPrint);
+        this.syncPosition();
+
+        if (location.hash.length > 1) {
+          var target = this.groupById(decodeURIComponent(location.hash.slice(1)));
+          if (target) { target.el.open = true; target.wasOpen = true; }
+        }
+      }
+
+      /* ---- Rows and quantities ---- */
+      prepareRow(row, title) {
+        var id = row.dataset.vid;
+        var cell = row.querySelector('.plist__qty');
+        if (!cell || row.hasAttribute('data-soldout')) return;
+        var label = row.dataset.opt && row.classList.contains('plist__row--variant') ? title + ', ' + row.dataset.opt : title;
+        cell.innerHTML =
+          '<span class="plist__stepper is-zero">' +
+          '<button type="button" class="plist__step plist__step--minus" data-plist-step="-1" aria-label="Remove one ' + escapeHtml(label) + '">' + ICONS.minus + '</button>' +
+          '<input class="plist__input" type="number" inputmode="numeric" min="0" step="1" value="0" aria-label="Quantity of ' + escapeHtml(label) + '">' +
+          '<button type="button" class="plist__step plist__step--plus" data-plist-step="1" aria-label="Add one ' + escapeHtml(label) + '">' + ICONS.plus + '</button>' +
+          '</span>';
+        if (!this.rowsByVariant.has(id)) this.rowsByVariant.set(id, []);
+        this.rowsByVariant.get(id).push({ row: row, stepper: cell.firstChild, input: cell.querySelector('input') });
+      }
+
+      setQty(id, value) {
+        var rows = this.rowsByVariant.get(id);
+        if (!rows) return;
+        var max = Number(rows[0].row.dataset.max);
+        var limit = max > 0 ? Math.min(max, MAX_QTY) : MAX_QTY;
+        var n = Math.max(0, Math.min(limit, Math.floor(Number(value)) || 0));
+        if (n) this.qty.set(id, n); else this.qty.delete(id);
+        rows.forEach(function (r) {
+          r.input.value = n;
+          r.stepper.classList.toggle('is-zero', !n);
+          r.row.classList.toggle('is-picked', !!n);
+        });
+        this.updateBar();
+      }
+
+      updateBar() {
+        if (!this.bar) return;
+        var self = this;
+        var count = 0;
+        var cents = 0;
+        this.qty.forEach(function (n, id) {
+          count += n;
+          cents += n * (Number(self.rowsByVariant.get(id)[0].row.dataset.price) || 0);
+        });
+        this.bar.hidden = count === 0;
+        this.bar.querySelector('[data-plist-bar-count]').textContent = count + ' ' + (count === 1 ? this.cfg.nounOne : this.cfg.nounMany);
+        this.bar.querySelector('[data-plist-bar-total]').textContent = this.money.format(cents / 100);
+      }
+
+      clearOrder() {
+        var self = this;
+        Array.from(this.qty.keys()).forEach(function (id) { self.setQty(id, 0); });
+      }
+
+      addToCart(button) {
+        var self = this;
+        if (!this.qty.size || button.disabled) return;
+        var items = [];
+        var count = 0;
+        this.qty.forEach(function (n, id) { items.push({ id: Number(id), quantity: n }); count += n; });
+
+        var drawer = document.querySelector('cart-drawer');
+        var useDrawer = !!drawer && typeof drawer.renderContents === 'function' && typeof drawer.getSectionsToRender === 'function';
+        var sections = ['cart-icon-bubble'];
+        if (useDrawer) {
+          try { sections = drawer.getSectionsToRender().map(function (s) { return s.id; }); } catch (e) { useDrawer = false; }
+        }
+
+        var label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Adding…';
+
+        fetch((this.cfg.cartAddUrl || '/cart/add') + '.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ items: items, sections: sections, sections_url: window.location.pathname })
+        })
+          .then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (data) {
+              if (!response.ok || data.status) throw new Error(data.description || data.message || 'Something went wrong adding to your cart.');
+              return data;
+            });
+          })
+          .then(function (data) {
+            var opened = false;
+            if (useDrawer && data.sections) {
+              try {
+                drawer.renderContents(data);
+                drawer.classList.remove('is-empty');
+                opened = true;
+              } catch (e) { /* fall through to the toast */ }
+            }
+            if (!opened) self.refreshCartIcon(data.sections);
+            self.clearOrder();
+            if (!opened) {
+              self.showToast('Added ' + count + ' ' + (count === 1 ? self.cfg.nounOne : self.cfg.nounMany) + ' to your cart.', false, true);
+            }
+            document.dispatchEvent(new CustomEvent('plist:added', { detail: { items: items } }));
+          })
+          .catch(function (error) {
+            self.showToast(error.message || 'Something went wrong adding to your cart.', true, false);
+          })
+          .then(function () {
+            button.disabled = false;
+            button.textContent = label;
+          });
+      }
+
+      refreshCartIcon(sections) {
+        var html = sections && sections['cart-icon-bubble'];
+        var bubble = document.getElementById('cart-icon-bubble');
+        if (!html || !bubble) return;
+        try {
+          var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('.shopify-section');
+          if (fresh) bubble.innerHTML = fresh.innerHTML;
+        } catch (e) { /* the cart page will still be correct */ }
+      }
+
+      showToast(message, isError, withCartLink) {
+        var self = this;
+        if (!this.toast) return;
+        clearTimeout(this.toastTimer);
+        this.toast.className = 'plist__toast' + (isError ? ' plist__toast--error' : '');
+        this.toast.innerHTML =
+          '<span>' + escapeHtml(message) + '</span>' +
+          (withCartLink ? '<a href="' + escapeHtml(this.cfg.cartUrl || '/cart') + '">View cart</a>' : '') +
+          '<button type="button" class="plist__toastclose" data-plist-toast-close aria-label="Dismiss">' + ICONS.close + '</button>';
+        this.toast.hidden = false;
+        this.toastTimer = setTimeout(function () { self.toast.hidden = true; }, isError ? 12000 : 7000);
+      }
+
+      /* ---- Search, filter, sort ---- */
+      applyFilter() {
+        var query = this.searchInput ? norm(this.searchInput.value).trim() : '';
+        var tokens = query ? query.split(/\s+/) : [];
+        var newOnly = !!this.newToggle && this.newToggle.getAttribute('aria-pressed') === 'true';
+        var active = tokens.length > 0 || newOnly;
+        var pattern = null;
+        if (tokens.length) {
+          var sorted = tokens.slice().sort(function (a, b) { return b.length - a.length; });
+          pattern = new RegExp('(' + sorted.map(escapeRegExp).join('|') + ')', 'ig');
+        }
+
+        if (active && !this.filtering) this.groups.forEach(function (g) { g.wasOpen = g.el.open; });
+        var shown = 0;
+        var wasFiltering = this.filtering;
+        this.groups.forEach(function (group) {
+          var matches = 0;
+          group.items.forEach(function (item) {
+            var ok = (!newOnly || item.isNew) && tokens.every(function (t) { return item.text.indexOf(t) !== -1; });
+            item.el.hidden = !ok;
+            if (ok) matches++;
+            if (item.nameEl) {
+              if (ok && pattern) {
+                item.nameEl.innerHTML = item.title.split(pattern).map(function (part, i) {
+                  return i % 2 ? '<mark>' + escapeHtml(part) + '</mark>' : escapeHtml(part);
+                }).join('');
+                item.marked = true;
+              } else if (item.marked) {
+                item.nameEl.textContent = item.title;
+                item.marked = false;
+              }
+            }
+          });
+          group.el.hidden = matches === 0;
+          if (group.countEl) group.countEl.textContent = matches;
+          if (active) group.el.open = true;
+          else if (wasFiltering) group.el.open = group.wasOpen;
+          shown += matches;
+        });
+        this.filtering = active;
+
+        if (this.clearSearchBtn) this.clearSearchBtn.hidden = !tokens.length;
+        if (this.emptyEl) this.emptyEl.hidden = shown > 0;
+        if (this.statusEl) {
+          this.statusEl.textContent = active
+            ? 'Showing ' + shown + ' of ' + this.cfg.total + ' ' + (this.cfg.total === 1 ? this.cfg.nounOne : this.cfg.nounMany)
+            : this.defaultStatus;
+        }
+        this.syncCollapseLabel();
+      }
+
+      resetFilter() {
+        if (this.searchInput) this.searchInput.value = '';
+        if (this.newToggle) this.newToggle.setAttribute('aria-pressed', 'false');
+        this.applyFilter();
+      }
+
+      applySort(mode) {
+        var compare = {
+          'default': function (a, b) { return a.index - b.index; },
+          'name': function (a, b) { return sortKey(a.title).localeCompare(sortKey(b.title), undefined, { numeric: true, sensitivity: 'base' }); },
+          'price-asc': function (a, b) { return a.price - b.price || a.index - b.index; },
+          'price-desc': function (a, b) { return b.price - a.price || a.index - b.index; }
+        }[mode];
+        if (!compare) return;
+        this.groups.forEach(function (group) {
+          group.items.slice().sort(compare).forEach(function (item) { group.list.appendChild(item.el); });
+        });
+      }
+
+      /* ---- Navigation ---- */
+      groupById(id) {
+        for (var i = 0; i < this.groups.length; i++) if (this.groups[i].id === id) return this.groups[i];
+        return null;
+      }
+
+      jumpTo(id) {
+        var group = this.groupById(id);
+        if (!group) return;
+        if (group.el.hidden) this.resetFilter();
+        group.el.open = true;
+        var toolbarHeight = this.toolbar ? this.toolbar.offsetHeight : 0;
+        var top = group.el.getBoundingClientRect().top + window.pageYOffset;
+        var offset = toolbarHeight + 8;
+        var stickyHeader = document.querySelector('sticky-header');
+        if (stickyHeader) {
+          var type = stickyHeader.getAttribute('data-sticky-type');
+          var goingUp = top < window.pageYOffset;
+          if (type === 'always' || type === 'reduce-logo-size' || (type === 'on-scroll-up' && goingUp)) offset += stickyHeader.offsetHeight;
+        }
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: Math.max(0, top - offset), behavior: reduce ? 'auto' : 'smooth' });
+        try { history.replaceState(null, '', '#' + id); } catch (e) { /* not allowed in some embedded previews */ }
+      }
+
+      syncPosition() {
+        if (this.toolbar) this.style.setProperty('--pl-toolbar-h', this.toolbar.offsetHeight + 'px');
+        if (!this.jumpSelect || document.activeElement === this.jumpSelect) return;
+        var line = (this.toolbar ? this.toolbar.getBoundingClientRect().bottom : 0) + 24;
+        var current = '';
+        for (var i = 0; i < this.groups.length; i++) {
+          var group = this.groups[i];
+          if (group.el.hidden) continue;
+          var rect = group.el.getBoundingClientRect();
+          if (rect.top <= line && rect.bottom > line) { current = group.id; break; }
+        }
+        if (this.jumpSelect.value !== current) this.jumpSelect.value = current;
+      }
+
+      syncCollapseLabel() {
+        if (!this.collapseBtn) return;
+        var anyOpen = this.groups.some(function (g) { return !g.el.hidden && g.el.open; });
+        this.collapseBtn.textContent = anyOpen ? 'Collapse all' : 'Expand all';
+      }
+
+      /* ---- Photo viewer ---- */
+      openPhoto(link) {
+        if (typeof HTMLDialogElement === 'undefined') return false;
+        var self = this;
+        if (!this.lightbox) {
+          this.lightbox = document.createElement('dialog');
+          this.lightbox.className = 'plist__lightbox';
+          this.lightbox.innerHTML =
+            '<button type="button" class="plist__lbclose" data-plist-lightbox-close aria-label="Close photo">' + ICONS.close + '</button>' +
+            '<img alt=""><div class="plist__lbcap"><strong></strong><a>View details</a></div>';
+          this.lightbox.addEventListener('click', function (event) {
+            if (event.target === self.lightbox) self.lightbox.close();
+          });
+          this.appendChild(this.lightbox);
+        }
+        var item = link.closest('.plist__item');
+        var thumb = link.querySelector('img');
+        var img = this.lightbox.querySelector('img');
+        img.onerror = function () { img.onerror = null; if (thumb) img.src = thumb.currentSrc || thumb.src; };
+        img.src = link.href;
+        img.alt = item.dataset.title;
+        this.lightbox.querySelector('strong').textContent = item.dataset.title;
+        this.lightbox.querySelector('a').href = item.dataset.url;
+        this.lightbox.showModal();
+        return true;
+      }
+
+      /* ---- Export and print ---- */
+      collectRows() {
+        var self = this;
+        var rows = [];
+        var base = this.cfg.shopUrl || window.location.origin;
+        this.groups.forEach(function (group) {
+          if (group.el.hidden) return;
+          Array.prototype.forEach.call(group.list.children, function (li) {
+            if (li.hidden) return;
+            var variantRows = li.querySelectorAll('[data-vid]');
+            Array.prototype.forEach.call(variantRows, function (row) {
+              var path = li.dataset.url + (variantRows.length > 1 ? (li.dataset.url.indexOf('?') === -1 ? '?' : '&') + 'variant=' + row.dataset.vid : '');
+              var url = path;
+              try { url = new URL(path, base).href; } catch (e) { /* keep the path */ }
+              rows.push({
+                group: group.title,
+                name: li.dataset.title,
+                option: row.dataset.opt || '',
+                sku: row.dataset.sku || '',
+                price: (Number(row.dataset.price) || 0) / 100,
+                compare: row.dataset.compare ? Number(row.dataset.compare) / 100 : null,
+                availability: row.hasAttribute('data-soldout') ? 'Sold out' : 'In stock',
+                url: url
+              });
+            });
+          });
+        });
+        return rows;
+      }
+
+      exportFile(format) {
+        var rows = this.collectRows();
+        if (!rows.length) return;
+        var currency = this.cfg.currency || '';
+        var columns = [
+          { key: 'group', label: 'Group', width: 34 },
+          { key: 'name', label: 'Name', width: 52 },
+          { key: 'option', label: 'Option', width: 30 },
+          { key: 'sku', label: 'SKU', width: 16 },
+          { key: 'price', label: 'Price' + (currency ? ' (' + currency + ')' : ''), width: 13 },
+          { key: 'compare', label: 'Regular price' + (currency ? ' (' + currency + ')' : ''), width: 19 },
+          { key: 'availability', label: 'Availability', width: 13 },
+          { key: 'url', label: 'Link', width: 70 }
+        ].filter(function (column) {
+          if (column.key !== 'option' && column.key !== 'sku' && column.key !== 'compare') return true;
+          return rows.some(function (row) { return row[column.key] !== '' && row[column.key] !== null; });
+        });
+        var filename = slug(this.cfg.shopName || '') + '-price-list-' + (this.cfg.date || '');
+        try {
+          if (format === 'csv') download(buildCsv(columns, rows), filename + '.csv');
+          else download(buildXlsx(columns, rows, 'Price List'), filename + '.xlsx');
+        } catch (error) {
+          this.showToast('Sorry, the download could not be created in this browser.', true, false);
+        }
+      }
+
+      print() {
+        var self = this;
+        document.documentElement.classList.add('plist-print-only');
+        this.classList.add('plist--printing');
+        for (var node = this.parentElement; node && node !== document.body; node = node.parentElement) node.classList.add('plist-print-path');
+        var go = function () { window.print(); };
+        if (!this.cfg.printImages) return go();
+        var pending = Array.prototype.filter.call(this.querySelectorAll('.plist__thumb img'), function (img) {
+          img.loading = 'eager';
+          return !img.complete;
+        });
+        if (!pending.length) return go();
+        var done = false;
+        var finish = function () { if (!done) { done = true; go(); } };
+        var left = pending.length;
+        pending.forEach(function (img) {
+          var settle = function () { if (--left === 0) finish(); };
+          img.addEventListener('load', settle, { once: true });
+          img.addEventListener('error', settle, { once: true });
+        });
+        setTimeout(finish, 4000);
+      }
+
+      /* ---- Events ---- */
+      handleClick(event) {
+        var target = event.target;
+        if (!target.closest) return;
+        var el;
+        if ((el = target.closest('[data-plist-step]'))) {
+          var row = el.closest('[data-vid]');
+          var id = row.dataset.vid;
+          this.setQty(id, (this.qty.get(id) || 0) + Number(el.getAttribute('data-plist-step')));
+          if (!this.qty.get(id)) {
+            var plus = row.querySelector('.plist__step--plus');
+            if (plus) plus.focus();
+          }
+        } else if ((el = target.closest('a.plist__thumb'))) {
+          if (this.openPhoto(el)) event.preventDefault();
+        } else if ((el = target.closest('.plist__chip'))) {
+          event.preventDefault();
+          this.jumpTo(el.getAttribute('href').slice(1));
+        } else if (target.closest('[data-plist-lightbox-close]')) {
+          this.lightbox.close();
+        } else if (target.closest('[data-plist-clear-search]')) {
+          this.searchInput.value = '';
+          this.applyFilter();
+          this.searchInput.focus();
+        } else if (target.closest('[data-plist-reset]')) {
+          this.resetFilter();
+        } else if ((el = target.closest('[data-plist-new]'))) {
+          el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+          this.applyFilter();
+        } else if (target.closest('[data-plist-collapse]')) {
+          var open = !this.groups.some(function (g) { return !g.el.hidden && g.el.open; });
+          this.groups.forEach(function (g) { g.el.open = open; if (!this.filtering) g.wasOpen = open; }, this);
+          this.syncCollapseLabel();
+        } else if ((el = target.closest('[data-plist-export]'))) {
+          this.exportFile(el.getAttribute('data-plist-export'));
+        } else if (target.closest('[data-plist-print]')) {
+          this.print();
+        } else if (target.closest('[data-plist-clear-order]')) {
+          this.clearOrder();
+        } else if ((el = target.closest('[data-plist-add]'))) {
+          this.addToCart(el);
+        } else if (target.closest('[data-plist-toast-close]')) {
+          this.toast.hidden = true;
+        }
+      }
+
+      handleChange(event) {
+        var target = event.target;
+        if (target === this.jumpSelect) {
+          if (target.value) this.jumpTo(target.value);
+          target.blur();
+        } else if (target === this.sortSelect) {
+          this.applySort(target.value);
+        } else if (target.classList.contains('plist__input')) {
+          this.setQty(target.closest('[data-vid]').dataset.vid, target.value);
+        }
+      }
+    }
+
+    customElements.define('plist-section', PriceList);
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Price list",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "Heading"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Price list"
+    },
+    {
+      "type": "select",
+      "id": "heading_tag",
+      "label": "Heading level",
+      "options": [
+        { "value": "h1", "label": "H1 (main heading of the page)" },
+        { "value": "h2", "label": "H2" }
+      ],
+      "default": "h2",
+      "info": "Use H1 when the price list is the main content of the page."
+    },
+    {
+      "type": "richtext",
+      "id": "intro",
+      "label": "Intro text"
+    },
+    {
+      "type": "textarea",
+      "id": "contact",
+      "label": "Contact line",
+      "info": "Shown under the heading and on printed copies. For example a phone number and email."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_updated",
+      "label": "Show \"Prices as of\" date",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "What to list"
+    },
+    {
+      "type": "collection_list",
+      "id": "collection_list",
+      "label": "Collections",
+      "limit": 50,
+      "info": "Each collection becomes a group. Drag to set the order. Leave empty to list every collection automatically. Up to 250 products are shown per collection."
+    },
+    {
+      "type": "collection",
+      "id": "new_collection",
+      "label": "Badge collection",
+      "info": "Products in this collection get a badge and a one-click filter. For example a New Arrivals collection."
+    },
+    {
+      "type": "text",
+      "id": "new_label",
+      "label": "Badge text",
+      "default": "New"
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_sold_out",
+      "label": "Hide sold-out products",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "noun_singular",
+      "label": "What one product is called",
+      "default": "item",
+      "info": "Used in counts and messages, such as \"1 item\"."
+    },
+    {
+      "type": "text",
+      "id": "noun_plural",
+      "label": "What several products are called",
+      "default": "items",
+      "info": "Used in the search box and counts, such as \"Search items\"."
+    },
+    {
+      "type": "header",
+      "content": "Row details"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_images",
+      "label": "Show product photos",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_sku",
+      "label": "Show SKU",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "Show vendor",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_stock",
+      "label": "Show quantity in stock",
+      "default": false,
+      "info": "Only for products with inventory tracking turned on."
+    },
+    {
+      "type": "header",
+      "content": "Tools for shoppers"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_ordering",
+      "label": "Quantity buttons and Add to cart",
+      "default": true,
+      "info": "Shoppers pick quantities down the list, then add everything to the cart in one step."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_search",
+      "label": "Search box",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_sort",
+      "label": "Sort menu",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_index",
+      "label": "Group shortcuts under the heading",
+      "default": true,
+      "info": "Shown on desktop. The Jump to menu is always available."
+    },
+    {
+      "type": "checkbox",
+      "id": "start_collapsed",
+      "label": "Start with groups collapsed",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_print",
+      "label": "Print / PDF button",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_excel",
+      "label": "Excel download button",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_csv",
+      "label": "CSV download button",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Printed copy"
+    },
+    {
+      "type": "select",
+      "id": "print_columns",
+      "label": "Columns on paper",
+      "options": [
+        { "value": "1", "label": "1 column" },
+        { "value": "2", "label": "2 columns (uses less paper)" }
+      ],
+      "default": "2"
+    },
+    {
+      "type": "checkbox",
+      "id": "print_images",
+      "label": "Include photos when printing",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "min": 700,
+      "max": 1600,
+      "step": 50,
+      "unit": "px",
+      "label": "Maximum width",
+      "default": 1100
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Top padding",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Bottom padding",
+      "default": 52
+    }
+  ],
+  "presets": [
+    {
+      "name": "Price list"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,59 @@
+{
+  "sections": {
+    "price-list": {
+      "type": "price-list",
+      "settings": {
+        "heading": "Price List",
+        "heading_tag": "h1",
+        "contact": "Phone: 1 (512) 618-0120 · Email: daves@davesfish.com",
+        "show_updated": true,
+        "collection_list": [
+          "altolamprologus",
+          "cyprichromis-paracyprichromis",
+          "featherfins",
+          "shell-dwellers",
+          "rock-dwellers-lake-tanganyika-1",
+          "frontosas",
+          "sand-dwelling-open-water-tanganyikans",
+          "tropheus",
+          "malawi-peacocks",
+          "malawi-haplochromines",
+          "malawi-mbuna",
+          "lake-victoria-other-east-africans",
+          "madagascan-cichlids",
+          "other-african-cichlids",
+          "new-world-cichlids",
+          "catfish-plecos",
+          "misc-fishes",
+          "invertebrates"
+        ],
+        "new_collection": "new-arrivals",
+        "new_label": "New",
+        "hide_sold_out": false,
+        "noun_singular": "fish",
+        "noun_plural": "fish",
+        "show_images": true,
+        "show_sku": false,
+        "show_vendor": false,
+        "show_stock": false,
+        "enable_ordering": true,
+        "enable_search": true,
+        "enable_sort": true,
+        "show_index": true,
+        "start_collapsed": false,
+        "show_print": true,
+        "show_excel": true,
+        "show_csv": false,
+        "print_columns": "2",
+        "print_images": false,
+        "color_scheme": "scheme-1",
+        "max_width": 1100,
+        "padding_top": 36,
+        "padding_bottom": 52
+      }
+    }
+  },
+  "order": [
+    "price-list"
+  ]
+}
