@@ -80,11 +80,13 @@ your products.
 
 Click **Price list** on the left to see its settings. The useful ones:
 
+- **Show product photos:** on by default. Turn it off for a text-only list with no photos.
+- **Include photos when printing:** off by default, so printed copies are text only. Turn it on to print the photos too.
 - **Badge collection:** fish in this collection get a "New" badge and a one-click filter. It is set to New Arrivals.
 - **Hide sold-out products:** off, so sold-out fish show with a "Sold out" badge.
 - **Quantity buttons and Add to cart:** turn off for a list people can only read.
 - **Intro text** and **Contact line:** the words under the heading.
-- **Columns on paper** and **Include photos when printing:** for the printed copy.
+- **Columns on paper:** one or two columns on the printed copy.
 
 ## Put it on the home page (optional)
 
